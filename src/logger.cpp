@@ -7,15 +7,19 @@
 #include <vector>
 #include <chrono>
 #include <ctime>
+#include <map>
 
 namespace slx {
-  const char *LoggerLevelStrings[] = {
-    "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
+  const std::map<LogLevel, LogLevelParam> LogLevelParams
+  {
+      {LogLevel::LOG_TRACE, LogLevelParam{"TRACE", "\x1b[94m"}}
+    , {LogLevel::LOG_DEBUG, LogLevelParam{"DEBUG", "\x1b[36m"}}
+    , {LogLevel::LOG_INFO,  LogLevelParam{"INFO",  "\x1b[32m"}}
+    , {LogLevel::LOG_WARN,  LogLevelParam{"WARN",  "\x1b[33m"}}
+    , {LogLevel::LOG_ERROR, LogLevelParam{"ERROR", "\x1b[31m"}}
+    , {LogLevel::LOG_FATAL, LogLevelParam{"FATAL", "\x1b[35m"}}
   };
 
-  const char *LoggerLevelColors[] = {
-    "\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"
-  };
 
 
   static std::string format(const char *fmt, ...)
@@ -60,7 +64,7 @@ namespace slx {
     time_buf[std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", localtime(&event.time))] = '\0';
 
     std::ostream & out = *reinterpret_cast<std::ostream *>(data);
-    out << time_buf << " " << std::setw(5) << LoggerLevelStrings[event.level] << " : ";
+    out << time_buf << " " << std::setw(5) << LogLevelParams.at(event.level).level_string << " : ";
     out << event.data << std::endl;
   }
 

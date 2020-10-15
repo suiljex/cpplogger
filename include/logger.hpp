@@ -5,13 +5,13 @@
 #include <stdarg.h>
 #include <memory>
 #include <chrono>
+#include <map>
 
 namespace slx
 {
-//#define LOG_USE_DEFAULT -1
   enum LogLevel
   {
-      LOG_USE_DEFAULT = -1
+    LOG_USE_DEFAULT = -1
     , LOG_TRACE = 0
     , LOG_DEBUG
     , LOG_INFO
@@ -20,9 +20,13 @@ namespace slx
     , LOG_FATAL
   };
 
-  extern const char *LoggerLevelStrings[];
+  struct LogLevelParam
+  {
+    const char * level_string;
+    const char * level_color;
+  };
 
-  extern const char *LoggerLevelColors[];
+  extern const std::map<LogLevel, LogLevelParam> LogLevelParams;
 
   struct LoggerEvent
   {
