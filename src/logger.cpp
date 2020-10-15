@@ -20,12 +20,8 @@ namespace slx {
     , {LogLevel::LOG_FATAL, LogLevelParam{"FATAL", "\x1b[35m"}}
   };
 
-
-
-  static std::string format(const char *fmt, ...)
+  static std::string format(const char *fmt, va_list args)
   {
-    va_list args;
-    va_start(args, fmt);
     std::vector<char> v(1024);
     while (true)
     {
@@ -34,7 +30,6 @@ namespace slx {
       int res = vsnprintf(v.data(), v.size(), fmt, args2);
       if ((res >= 0) && (res < static_cast<int>(v.size())))
       {
-        va_end(args);
         va_end(args2);
         return std::string(v.data());
       }
@@ -61,10 +56,15 @@ namespace slx {
     }
 
     char time_buf[64];
-    time_buf[std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", localtime(&event.time))] = '\0';
+    time_buf[std::strftime(time_buf
+                           , sizeof(time_buf)
+                           , "%Y-%m-%d %H:%M:%S"
+                           , localtime(&event.time))] = '\0';
 
     std::ostream & out = *reinterpret_cast<std::ostream *>(data);
-    out << time_buf << " " << std::setw(5) << LogLevelParams.at(event.level).level_string << " : ";
+    out << time_buf
+        << " " << std::setw(5) << LogLevelParams.at(event.level).level_string
+        << " : ";
     out << event.data << std::endl;
   }
 
@@ -72,13 +72,15 @@ namespace slx {
     : level(LogLevel::LOG_TRACE)
     , quiet_flag(false)
     , async_flag(false)
+    , worker_run(false)
   {
 
   }
 
   Logger::~Logger()
   {
-
+    StopWorker();
+    FlushQueue();
   }
 
   int Logger::SetLevel(LogLevel i_level)
@@ -131,7 +133,9 @@ namespace slx {
 
   int Logger::AddStream(const std::ostream & i_stream, LogLevel i_level)
   {
-    CreateCallback(StreamCallbackFn, reinterpret_cast<void *>(const_cast<std::ostream *>(&i_stream)), i_level);
+    CreateCallback(StreamCallbackFn
+      , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_stream))
+      , i_level);
     return 0;
   }
 
@@ -141,9 +145,15 @@ namespace slx {
     return 0;
   }
 
-  std::weak_ptr<LoggerCallback> Logger::CreateCallback(LoggerCallbackFn i_callback_fn, void * i_data, LogLevel i_level)
+  std::weak_ptr<LoggerCallback> Logger::CreateCallback(
+    LoggerCallbackFn i_callback_fn
+  , void * i_data
+  , LogLevel i_level)
   {
-    std::shared_ptr<LoggerCallback> new_callback (new LoggerCallback{i_callback_fn, i_data, i_level});
+    std::shared_ptr<LoggerCallback> new_callback(
+          new LoggerCallback{i_callback_fn
+                             , i_data
+                             , i_level});
     callbacks.push_back(new_callback);
     return std::weak_ptr<LoggerCallback>(new_callback);
   }
@@ -239,8 +249,10 @@ namespace slx {
   {
     for (auto it = this->callbacks.begin(); it != this->callbacks.end(); ++it)
     {
-      if ((it->get()->level != LOG_USE_DEFAULT && i_event.level >= it->get()->level)
-          ||(it->get()->level == LOG_USE_DEFAULT && i_event.level >= this->level && this->quiet_flag == false))
+      if ((it->get()->level != LOG_USE_DEFAULT
+             && i_event.level >= it->get()->level)
+          ||(it->get()->level == LOG_USE_DEFAULT
+             && i_event.level >= this->level && this->quiet_flag == false))
       {
         it->get()->callback_fn(i_event, it->get()->data);
       }
@@ -251,7 +263,9 @@ namespace slx {
 
   int Logger::FlushQueue()
   {
-    if (worker_run == false && async_flag == false && worker.joinable() == false)
+    if (worker_run == false
+        && async_flag == false
+        && worker.joinable() == false)
     {
       while (events.empty() == false)
       {

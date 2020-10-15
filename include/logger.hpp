@@ -36,8 +36,8 @@ namespace slx
 
   struct LoggerEvent
   {
-    std::string data;
     std::time_t time;
+    std::string data;
     LogLevel level;
   };
 
@@ -57,38 +57,79 @@ namespace slx
 
     ~Logger();
 
-    int SetLevel(LogLevel i_level);
+    int SetLevel
+    (
+        LogLevel i_level
+    );
 
     int GetLevel();
 
-    int SetQuietFlag(bool i_quiet_flag);
+    int SetQuietFlag
+    (
+        bool i_quiet_flag
+    );
 
     bool GetQuietFlag();
 
-    int SetAsyncFlag(bool i_async_flag);
+    int SetAsyncFlag
+    (
+        bool i_async_flag
+    );
 
     bool GetAsyncFlag();
 
     std::size_t GetCallBacksCount();
 
-    int AddStream(const std::ostream & i_stream, LogLevel i_level);
+    int AddStream
+    (
+        const std::ostream & i_stream
+      , LogLevel i_level
+    );
 
-    int  AddCallback(const std::shared_ptr<LoggerCallback> & i_callback);
+    int  AddCallback
+    (
+        const std::shared_ptr<LoggerCallback> & i_callback
+    );
 
-    std::weak_ptr<LoggerCallback> CreateCallback(LoggerCallbackFn i_callback_fn, void* i_data, LogLevel i_level);
+    std::weak_ptr<LoggerCallback> CreateCallback
+    (
+        LoggerCallbackFn i_callback_fn
+      , void* i_data, LogLevel i_level
+    );
 
-    std::weak_ptr<LoggerCallback> GetCallbackByIndex(std::size_t i_index);
+    std::weak_ptr<LoggerCallback> GetCallbackByIndex
+    (
+        std::size_t i_index
+    );
 
-    int DelCallback(const std::weak_ptr<LoggerCallback> & i_callback);
+    int DelCallback
+    (
+        const std::weak_ptr<LoggerCallback> & i_callback
+    );
 
-    int DelCallbackByIndex(std::size_t i_index);
+    int DelCallbackByIndex
+    (
+        std::size_t i_index
+    );
 
-    int Log(LogLevel i_level, const std::string & i_data);
+    int Log
+    (
+        LogLevel i_level
+      , const std::string & i_data
+    );
 
-    int LogFormat(LogLevel i_level, const char *fmt, ...);
+    int LogFormat
+    (
+        LogLevel i_level
+      , const char *fmt
+      , ...
+    );
 
   protected:
-    int ProcessEvent(const LoggerEvent & i_event);
+    int ProcessEvent
+    (
+        const LoggerEvent & i_event
+    );
 
     int FlushQueue();
 
@@ -96,7 +137,10 @@ namespace slx
 
     int StopWorker();
 
-    static void Worker(Logger * i_parent);
+    static void Worker
+    (
+        Logger * i_parent
+    );
 
     LogLevel level;
     bool quiet_flag;
