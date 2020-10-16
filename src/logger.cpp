@@ -1,6 +1,7 @@
 #include "logger.hpp"
 
 #include <ostream>
+#include <fstream>
 #include <iomanip>
 #include <string>
 #include <stdarg.h>
@@ -20,54 +21,66 @@ namespace slx {
     , {LogLevel::LOG_FATAL, LogLevelParam{"FATAL", "\x1b[35m"}}
   };
 
-  static std::string format(const char *fmt, va_list args)
-  {
-    std::vector<char> v(1024);
-    while (true)
-    {
-      va_list args2;
-      va_copy(args2, args);
-      int res = vsnprintf(v.data(), v.size(), fmt, args2);
-      if ((res >= 0) && (res < static_cast<int>(v.size())))
-      {
-        va_end(args2);
-        return std::string(v.data());
-      }
-      size_t size;
-      if (res < 0)
-      {
-        size = v.size() * 2;
-      }
-      else
-      {
-        size = static_cast<size_t>(res) + 1;
-      }
-      v.clear();
-      v.resize(size);
-      va_end(args2);
-    }
-  }
 
-  static void StreamCallbackFn(const LoggerEvent & event, void * data)
+  static void DefaultLoggerCallbackStream(
+      const LoggerEvent & i_event
+    , void * i_data)
   {
-    if (data == nullptr)
+    if (i_data == nullptr)
     {
       return;
     }
 
-    char time_buf[64];
-    time_buf[std::strftime(time_buf
-                           , sizeof(time_buf)
-                           , "%Y-%m-%d %H:%M:%S"
-                           , localtime(&event.time))] = '\0';
+    std::ostream & out = *reinterpret_cast<std::ostream *>(i_data);
 
-    std::ostream & out = *reinterpret_cast<std::ostream *>(data);
-    out << time_buf
-        << " " << std::setw(5) << LogLevelParams.at(event.level).level_string
+    out << Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time)
+        << " " << std::setw(5) << LogLevelParams.at(i_event.level).level_string
         << " : ";
-    out << event.data << std::endl;
+    out << i_event.data << std::endl;
   }
 
+  static void DefaultLoggerCallbackFilename(
+      const LoggerEvent & i_event
+    , void * i_data)
+  {
+    if (i_data == nullptr)
+    {
+      return;
+    }
+
+    std::ofstream fout(reinterpret_cast<char *>(i_data));
+    if (fout.is_open() == false)
+    {
+      return;
+    }
+
+    fout << Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time)
+        << " " << std::setw(5) << LogLevelParams.at(i_event.level).level_string
+        << " : ";
+    fout << i_event.data << std::endl;
+  }
+
+  static void DefaultLoggerCallbackFILE(
+      const LoggerEvent & i_event
+    , void * i_data)
+  {
+    if (i_data == nullptr)
+    {
+      return;
+    }
+
+    FILE * file = reinterpret_cast<FILE *>(i_data);
+    if (file == nullptr)
+    {
+      return;
+    }
+
+    fprintf(file
+            , "%s %-5s : %s\n"
+            , Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time).c_str()
+            , LogLevelParams.at(i_event.level).level_string
+            , i_event.data.c_str());
+  }
   Logger::Logger()
     : level(LogLevel::LOG_TRACE)
     , quiet_flag(false)
@@ -105,14 +118,6 @@ namespace slx {
   std::size_t Logger::GetCallBacksCount()
   {
     return callbacks.size();
-  }
-
-  int Logger::AddStream(const std::ostream & i_stream, LogLevel i_level)
-  {
-    CreateCallback(StreamCallbackFn
-                   , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_stream))
-                   , i_level);
-    return 0;
   }
 
   int Logger::AddCallback(const std::shared_ptr<LoggerCallback> & i_callback)
@@ -205,10 +210,68 @@ namespace slx {
     va_list vargs;
     std::string data;
     va_start(vargs, i_fmt);
-    data = format(i_fmt, vargs);
+    data = FormatData(i_fmt, vargs);
     va_end(vargs);
 
     return this->Log(i_level, data);
+  }
+
+  std::string Logger::FormatTimestamp(const char * i_fmt, std::time_t i_ts)
+  {
+    return FormatTimestamp(i_fmt, localtime(&i_ts));
+  }
+
+  std::string Logger::FormatTimestamp(const char * i_fmt, const std::tm * i_tm)
+  {
+    std::vector<char> buffer(64);
+    std::size_t res;
+    res = std::strftime(buffer.data(), buffer.size(), i_fmt, i_tm);
+    while (res == 0)
+    {
+      buffer.resize(buffer.size() * 2);
+      res = std::strftime(buffer.data(), buffer.size(), i_fmt, i_tm);
+    }
+    buffer[res] = '\0';
+    return std::string(buffer.data());
+  }
+
+  std::string Logger::FormatData(const char * i_fmt, ...)
+  {
+    va_list vargs;
+    std::string data;
+    va_start(vargs, i_fmt);
+    data = FormatData(i_fmt, vargs);
+    va_end(vargs);
+    return data;
+  }
+
+  std::string Logger::FormatData(const char * i_fmt, va_list i_args)
+  {
+    std::vector<char> buffer(1024);
+    va_list tesm_args;
+    va_copy(tesm_args, i_args);
+
+    int res = vsnprintf(buffer.data(), buffer.size(), i_fmt, tesm_args);
+    if (res < 0)
+    {
+      return std::string();
+    }
+
+    if ((res >= 0) && (res < static_cast<int>(buffer.size())))
+    {
+      va_end(tesm_args);
+      return std::string(buffer.data());
+    }
+
+    buffer.resize(static_cast<size_t>(res) + 1);
+    res = vsnprintf(buffer.data(), buffer.size(), i_fmt, tesm_args);
+    va_end(tesm_args);
+
+    if ((res >= 0) && (res < static_cast<int>(buffer.size())))
+    {
+      return std::string(buffer.data());
+    }
+    return std::string();
   }
 
   int Logger::ProcessEvent(const LoggerEvent & i_event)
@@ -225,5 +288,35 @@ namespace slx {
     }
 
     return 0;
+  }
+
+  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackStream(
+      const std::ostream & i_out
+    , LogLevel i_level)
+  {
+    return std::shared_ptr<LoggerCallback>(
+            new LoggerCallback{DefaultLoggerCallbackStream
+          , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_out))
+          , i_level});
+  }
+
+  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackFilename(
+      const char * i_file
+    , LogLevel i_level)
+  {
+    return std::shared_ptr<LoggerCallback>(
+            new LoggerCallback{DefaultLoggerCallbackFilename
+          , reinterpret_cast<void *>(const_cast<char *>(i_file))
+          , i_level});
+  }
+
+  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackFILE(
+      FILE * i_file
+    , LogLevel i_level)
+  {
+    return std::shared_ptr<LoggerCallback>(
+            new LoggerCallback{DefaultLoggerCallbackFILE
+          , reinterpret_cast<void *>(i_file)
+          , i_level});
   }
 }

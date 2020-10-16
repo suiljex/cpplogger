@@ -41,7 +41,7 @@ namespace slx
   struct LoggerCallback
   {
     LoggerCallbackFn callback_fn;
-    void* data;
+    void * data;
     LogLevel level;
   };
 
@@ -74,12 +74,6 @@ namespace slx
     bool GetAsyncFlag();
 
     std::size_t GetCallBacksCount();
-
-    int AddStream
-    (
-        const std::ostream & i_stream
-      , LogLevel i_level
-    );
 
     int  AddCallback
     (
@@ -118,6 +112,48 @@ namespace slx
         LogLevel i_level
       , const char *fmt
       , ...
+    );
+
+    static std::string FormatTimestamp
+    (
+        const char * i_fmt
+      , std::time_t i_ts
+    );
+
+    static std::string FormatTimestamp
+    (
+        const char * i_fmt
+      , const std::tm * i_tm
+    );
+
+    static std::string FormatData
+    (
+        const char * i_fmt
+      , ...
+    );
+
+    static std::string FormatData
+    (
+        const char *fmt
+      , va_list args
+    );
+
+    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackStream
+    (
+        const std::ostream & i_out
+      , LogLevel i_level
+    );
+
+    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackFilename
+    (
+        const char * i_file
+      , LogLevel i_level
+    );
+
+    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackFILE
+    (
+        FILE * i_file
+      , LogLevel i_level
     );
 
   protected:
