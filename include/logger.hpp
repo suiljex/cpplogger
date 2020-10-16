@@ -3,15 +3,10 @@
 
 #include <list>
 #include <stdarg.h>
+#include <unistd.h>
 #include <memory>
 #include <chrono>
 #include <map>
-#include <queue>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-
-#include <unistd.h>
 
 namespace slx
 {
@@ -131,27 +126,9 @@ namespace slx
         const LoggerEvent & i_event
     );
 
-    int FlushQueue();
-
-    int StartWorker();
-
-    int StopWorker();
-
-    static void Worker
-    (
-        Logger * i_parent
-    );
-
     LogLevel level;
     bool quiet_flag;
     std::list<std::shared_ptr<LoggerCallback>> callbacks;
-
-    bool async_flag;
-    bool worker_run;
-    std::mutex events_mtx;
-    std::condition_variable events_cv;
-    std::queue<LoggerEvent> events;
-    std::thread worker;
   };
 }
 

@@ -12,7 +12,7 @@
 namespace slx {
   const std::map<LogLevel, LogLevelParam> LogLevelParams
   {
-      {LogLevel::LOG_TRACE, LogLevelParam{"TRACE", "\x1b[94m"}}
+    {LogLevel::LOG_TRACE, LogLevelParam{"TRACE", "\x1b[94m"}}
     , {LogLevel::LOG_DEBUG, LogLevelParam{"DEBUG", "\x1b[36m"}}
     , {LogLevel::LOG_INFO,  LogLevelParam{"INFO",  "\x1b[32m"}}
     , {LogLevel::LOG_WARN,  LogLevelParam{"WARN",  "\x1b[33m"}}
@@ -71,16 +71,13 @@ namespace slx {
   Logger::Logger()
     : level(LogLevel::LOG_TRACE)
     , quiet_flag(false)
-    , async_flag(false)
-    , worker_run(false)
   {
 
   }
 
   Logger::~Logger()
   {
-    StopWorker();
-    FlushQueue();
+
   }
 
   int Logger::SetLevel(LogLevel i_level)
@@ -105,27 +102,6 @@ namespace slx {
     return quiet_flag;
   }
 
-  int Logger::SetAsyncFlag(bool i_async_flag)
-  {
-    if (i_async_flag == true)
-    {
-      async_flag = true;
-      StartWorker();
-    }
-    else
-    {
-      async_flag = false;
-      StopWorker();
-    }
-
-    return 0;
-  }
-
-  bool Logger::GetAsyncFlag()
-  {
-    return async_flag;
-  }
-
   std::size_t Logger::GetCallBacksCount()
   {
     return callbacks.size();
@@ -134,8 +110,8 @@ namespace slx {
   int Logger::AddStream(const std::ostream & i_stream, LogLevel i_level)
   {
     CreateCallback(StreamCallbackFn
-      , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_stream))
-      , i_level);
+                   , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_stream))
+                   , i_level);
     return 0;
   }
 
@@ -146,9 +122,9 @@ namespace slx {
   }
 
   std::weak_ptr<LoggerCallback> Logger::CreateCallback(
-    LoggerCallbackFn i_callback_fn
-  , void * i_data
-  , LogLevel i_level)
+      LoggerCallbackFn i_callback_fn
+      , void * i_data
+      , LogLevel i_level)
   {
     std::shared_ptr<LoggerCallback> new_callback(
           new LoggerCallback{i_callback_fn
@@ -219,17 +195,7 @@ namespace slx {
     event.data = i_data;
     event.time = std::time(nullptr);
 
-    if (this->async_flag == true)
-    {
-      events_mtx.lock();
-      this->events.push(event);
-      events_mtx.unlock();
-      events_cv.notify_all();
-    }
-    else
-    {
-      ProcessEvent(event);
-    }
+    ProcessEvent(event);
 
     return 0;
   }
@@ -250,7 +216,7 @@ namespace slx {
     for (auto it = this->callbacks.begin(); it != this->callbacks.end(); ++it)
     {
       if ((it->get()->level != LOG_USE_DEFAULT
-             && i_event.level >= it->get()->level)
+           && i_event.level >= it->get()->level)
           ||(it->get()->level == LOG_USE_DEFAULT
              && i_event.level >= this->level && this->quiet_flag == false))
       {
@@ -259,72 +225,5 @@ namespace slx {
     }
 
     return 0;
-  }
-
-  int Logger::FlushQueue()
-  {
-    if (worker_run == false
-        && async_flag == false
-        && worker.joinable() == false)
-    {
-      while (events.empty() == false)
-      {
-        ProcessEvent(events.front());
-        events.pop();
-      }
-
-      return 0;
-    }
-    return 1;
-  }
-
-  int Logger::StartWorker()
-  {
-    if (worker_run == true || worker.joinable() == true)
-    {
-      return 1;
-    }
-
-    worker_run = true;
-    worker = std::thread(this->Worker, this);
-    return 0;
-  }
-
-  int Logger::StopWorker()
-  {
-    if (worker_run == false || worker.joinable() == false)
-    {
-      return 1;
-    }
-
-    worker_run = false;
-    events_cv.notify_all();
-    worker.join();
-    FlushQueue();
-    return 0;
-  }
-
-  void Logger::Worker(Logger * i_parent)
-  {
-    if (i_parent == nullptr)
-    {
-      return;
-    }
-    LoggerEvent event;
-
-    while (i_parent->worker_run == true)
-    {
-      std::unique_lock<std::mutex> lock(i_parent->events_mtx);
-      i_parent->events_cv.wait(lock);
-      while (i_parent->events.empty() == false && i_parent->worker_run == true)
-      {
-        event = i_parent->events.front();
-        i_parent->events.pop();
-        lock.unlock();
-        i_parent->ProcessEvent(event);
-        lock.lock();
-      }
-      lock.unlock();
-    }
   }
 }
