@@ -2,18 +2,19 @@
 #define LOGGER_H
 
 #include <list>
-#include <stdarg.h>
+#include <cstdarg>
 #include <unistd.h>
 #include <memory>
 #include <chrono>
 #include <map>
+#include <fstream>
+#include <iomanip>
 
 namespace slx
 {
-  enum LogLevel
+  enum class LogLevel
   {
-    LOG_USE_DEFAULT = -1
-    , LOG_TRACE = 0
+    LOG_TRACE = 0
     , LOG_DEBUG
     , LOG_INFO
     , LOG_WARN
@@ -21,13 +22,7 @@ namespace slx
     , LOG_FATAL
   };
 
-  struct LogLevelParam
-  {
-    const char * level_string;
-    const char * level_color;
-  };
-
-  extern const std::map<LogLevel, LogLevelParam> LogLevelParams;
+  extern const std::map<LogLevel, std::string> g_log_level_strings;
 
   struct LoggerEvent
   {
@@ -36,135 +31,108 @@ namespace slx
     LogLevel level;
   };
 
-  typedef void (*LoggerCallbackFn)(const LoggerEvent & event, void * data);
-
-  struct LoggerCallback
+  class CallbackInterface
   {
-    LoggerCallbackFn callback_fn;
-    void * data;
-    LogLevel level;
+  public:
+    CallbackInterface() = default;
+
+    virtual ~CallbackInterface() = default;
+
+    int Exec(const LoggerEvent &i_event);
+
+    LogLevel GetLevel() const;
+
+    void SetLevel(LogLevel i_level);
+
+    bool GetFlagActive() const;
+
+    void SetFlagActive(bool i_flag);
+
+  protected:
+    virtual int CallbackFunction(const LoggerEvent &i_event) = 0;
+
+    LogLevel level = LogLevel::LOG_TRACE;
+
+    bool flag_active = true;
   };
+
+  typedef std::shared_ptr<CallbackInterface> tCallback;
 
   class Logger
   {
   public:
-    Logger();
+    Logger() = default;
 
-    ~Logger();
-
-    int SetLevel
-    (
-        LogLevel i_level
-    );
-
-    int GetLevel();
+    ~Logger() = default;
 
     int SetQuietFlag
     (
-        bool i_quiet_flag
+      bool i_quiet_flag
     );
 
-    bool GetQuietFlag();
-
-    int SetAsyncFlag
-    (
-        bool i_async_flag
-    );
-
-    bool GetAsyncFlag();
+    bool GetQuietFlag() const;
 
     std::size_t GetCallBacksCount();
 
-    int  AddCallback
+    int AddCallback
     (
-        const std::shared_ptr<LoggerCallback> & i_callback
+      const tCallback &i_callback
     );
 
-    std::weak_ptr<LoggerCallback> CreateCallback
+    tCallback GetCallbackByIndex
     (
-        LoggerCallbackFn i_callback_fn
-      , void* i_data, LogLevel i_level
-    );
-
-    std::weak_ptr<LoggerCallback> GetCallbackByIndex
-    (
-        std::size_t i_index
+      std::size_t i_index
     );
 
     int DelCallback
     (
-        const std::weak_ptr<LoggerCallback> & i_callback
+      const tCallback &i_callback
     );
 
     int DelCallbackByIndex
     (
-        std::size_t i_index
+      std::size_t i_index
     );
 
     int Log
     (
-        LogLevel i_level
-      , const std::string & i_data
+      LogLevel i_level, const std::string &i_data
     );
 
     int LogFormat
     (
-        LogLevel i_level
-      , const char *fmt
-      , ...
+      LogLevel i_level, const char *fmt, ...
     );
 
     static std::string FormatTimestamp
     (
-        const char * i_fmt
-      , std::time_t i_ts
+      const char *i_fmt, std::time_t i_ts
     );
 
     static std::string FormatTimestamp
     (
-        const char * i_fmt
-      , const std::tm * i_tm
+      const char *i_fmt, const std::tm *i_tm
     );
 
     static std::string FormatData
     (
-        const char * i_fmt
-      , ...
+      const char *i_fmt, ...
     );
 
     static std::string FormatData
     (
-        const char *fmt
-      , va_list args
-    );
-
-    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackStream
-    (
-        const std::ostream & i_out
-      , LogLevel i_level
-    );
-
-    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackFilename
-    (
-        const char * i_file
-      , LogLevel i_level
-    );
-
-    static std::shared_ptr<LoggerCallback> CreateDefalutCallbackFILE
-    (
-        FILE * i_file
-      , LogLevel i_level
+      const char *fmt, va_list args
     );
 
   protected:
     int ProcessEvent
     (
-        const LoggerEvent & i_event
+      const LoggerEvent &i_event
     );
 
-    LogLevel level;
-    bool quiet_flag;
-    std::list<std::shared_ptr<LoggerCallback>> callbacks;
+    bool flag_quiet = false;
+
+    std::list<tCallback> callbacks;
   };
 }
 

@@ -1,118 +1,67 @@
 #include "logger.hpp"
 
-#include <ostream>
-#include <fstream>
-#include <iomanip>
 #include <string>
-#include <stdarg.h>
+#include <cstdarg>
 #include <vector>
-#include <chrono>
 #include <ctime>
 #include <map>
 
-namespace slx {
-  const std::map<LogLevel, LogLevelParam> LogLevelParams
-  {
-    {LogLevel::LOG_TRACE, LogLevelParam{"TRACE", "\x1b[94m"}}
-    , {LogLevel::LOG_DEBUG, LogLevelParam{"DEBUG", "\x1b[36m"}}
-    , {LogLevel::LOG_INFO,  LogLevelParam{"INFO",  "\x1b[32m"}}
-    , {LogLevel::LOG_WARN,  LogLevelParam{"WARN",  "\x1b[33m"}}
-    , {LogLevel::LOG_ERROR, LogLevelParam{"ERROR", "\x1b[31m"}}
-    , {LogLevel::LOG_FATAL, LogLevelParam{"FATAL", "\x1b[35m"}}
-  };
-
-
-  static void DefaultLoggerCallbackStream(
-      const LoggerEvent & i_event
-    , void * i_data)
-  {
-    if (i_data == nullptr)
+namespace slx
+{
+  extern const std::map<LogLevel, std::string> g_log_level_strings
     {
-      return;
+      {LogLevel::LOG_TRACE, std::string{"TRACE"}},
+      {LogLevel::LOG_DEBUG, std::string{"DEBUG"}},
+      {LogLevel::LOG_INFO,  std::string{"INFO"}},
+      {LogLevel::LOG_WARN,  std::string{"WARN"}},
+      {LogLevel::LOG_ERROR, std::string{"ERROR"}},
+      {LogLevel::LOG_FATAL, std::string{"FATAL"}}
+    };
+
+  int CallbackInterface::Exec(const LoggerEvent &i_event)
+  {
+    if (flag_active == false)
+    {
+      return 0;
     }
 
-    std::ostream & out = *reinterpret_cast<std::ostream *>(i_data);
-
-    out << Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time)
-        << " " << std::setw(5) << LogLevelParams.at(i_event.level).level_string
-        << " : ";
-    out << i_event.data << std::endl;
-  }
-
-  static void DefaultLoggerCallbackFilename(
-      const LoggerEvent & i_event
-    , void * i_data)
-  {
-    if (i_data == nullptr)
+    if (level > i_event.level)
     {
-      return;
+      return 0;
     }
 
-    std::ofstream fout(reinterpret_cast<char *>(i_data));
-    if (fout.is_open() == false)
-    {
-      return;
-    }
-
-    fout << Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time)
-        << " " << std::setw(5) << LogLevelParams.at(i_event.level).level_string
-        << " : ";
-    fout << i_event.data << std::endl;
+    return CallbackFunction(i_event);
   }
 
-  static void DefaultLoggerCallbackFILE(
-      const LoggerEvent & i_event
-    , void * i_data)
-  {
-    if (i_data == nullptr)
-    {
-      return;
-    }
-
-    FILE * file = reinterpret_cast<FILE *>(i_data);
-    if (file == nullptr)
-    {
-      return;
-    }
-
-    fprintf(file
-            , "%s %-5s : %s\n"
-            , Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time).c_str()
-            , LogLevelParams.at(i_event.level).level_string
-            , i_event.data.c_str());
-  }
-  Logger::Logger()
-    : level(LogLevel::LOG_TRACE)
-    , quiet_flag(false)
-  {
-
-  }
-
-  Logger::~Logger()
-  {
-
-  }
-
-  int Logger::SetLevel(LogLevel i_level)
-  {
-    level = i_level;
-    return 0;
-  }
-
-  int Logger::GetLevel()
+  LogLevel CallbackInterface::GetLevel() const
   {
     return level;
   }
 
+  void CallbackInterface::SetLevel(LogLevel i_level)
+  {
+    level = i_level;
+  }
+
+  bool CallbackInterface::GetFlagActive() const
+  {
+    return flag_active;
+  }
+
+  void CallbackInterface::SetFlagActive(bool i_flag)
+  {
+    flag_active = i_flag;
+  }
+
   int Logger::SetQuietFlag(bool i_quiet_flag)
   {
-    quiet_flag = i_quiet_flag;
+    flag_quiet = i_quiet_flag;
     return 0;
   }
 
-  bool Logger::GetQuietFlag()
+  bool Logger::GetQuietFlag() const
   {
-    return quiet_flag;
+    return flag_quiet;
   }
 
   std::size_t Logger::GetCallBacksCount()
@@ -120,26 +69,13 @@ namespace slx {
     return callbacks.size();
   }
 
-  int Logger::AddCallback(const std::shared_ptr<LoggerCallback> & i_callback)
+  int Logger::AddCallback(const tCallback & i_callback)
   {
     callbacks.push_back(i_callback);
     return 0;
   }
 
-  std::weak_ptr<LoggerCallback> Logger::CreateCallback(
-      LoggerCallbackFn i_callback_fn
-      , void * i_data
-      , LogLevel i_level)
-  {
-    std::shared_ptr<LoggerCallback> new_callback(
-          new LoggerCallback{i_callback_fn
-                             , i_data
-                             , i_level});
-    callbacks.push_back(new_callback);
-    return std::weak_ptr<LoggerCallback>(new_callback);
-  }
-
-  std::weak_ptr<LoggerCallback> Logger::GetCallbackByIndex(std::size_t i_index)
+  tCallback Logger::GetCallbackByIndex(std::size_t i_index)
   {
     if (i_index < callbacks.size())
     {
@@ -148,24 +84,19 @@ namespace slx {
       {
         if (count == i_index)
         {
-          return std::weak_ptr<LoggerCallback>(*it);
+          return *it;
         }
       }
     }
 
-    return std::weak_ptr<LoggerCallback>();
+    return tCallback();
   }
 
-  int Logger::DelCallback(const std::weak_ptr<LoggerCallback> & i_callback)
+  int Logger::DelCallback(const tCallback & i_callback)
   {
-    if (i_callback.expired() == true)
-    {
-      return 1;
-    }
-
     for (auto it = callbacks.begin(); it != callbacks.end(); ++it)
     {
-      if (i_callback.lock().get() == (*it).get())
+      if (i_callback.get() == (*it).get())
       {
         callbacks.erase(it);
         return 0;
@@ -193,7 +124,7 @@ namespace slx {
     return 1;
   }
 
-  int Logger::Log(LogLevel i_level, const std::string & i_data)
+  int Logger::Log(LogLevel i_level, const std::string &i_data)
   {
     LoggerEvent event;
     event.level = i_level;
@@ -205,7 +136,7 @@ namespace slx {
     return 0;
   }
 
-  int Logger::LogFormat(LogLevel i_level, const char * i_fmt, ...)
+  int Logger::LogFormat(LogLevel i_level, const char *i_fmt, ...)
   {
     va_list vargs;
     std::string data;
@@ -216,12 +147,12 @@ namespace slx {
     return this->Log(i_level, data);
   }
 
-  std::string Logger::FormatTimestamp(const char * i_fmt, std::time_t i_ts)
+  std::string Logger::FormatTimestamp(const char *i_fmt, std::time_t i_ts)
   {
     return FormatTimestamp(i_fmt, localtime(&i_ts));
   }
 
-  std::string Logger::FormatTimestamp(const char * i_fmt, const std::tm * i_tm)
+  std::string Logger::FormatTimestamp(const char *i_fmt, const std::tm *i_tm)
   {
     std::vector<char> buffer(64);
     std::size_t res;
@@ -235,7 +166,7 @@ namespace slx {
     return std::string(buffer.data());
   }
 
-  std::string Logger::FormatData(const char * i_fmt, ...)
+  std::string Logger::FormatData(const char *i_fmt, ...)
   {
     va_list vargs;
     std::string data;
@@ -245,7 +176,7 @@ namespace slx {
     return data;
   }
 
-  std::string Logger::FormatData(const char * i_fmt, va_list i_args)
+  std::string Logger::FormatData(const char *i_fmt, va_list i_args)
   {
     std::vector<char> buffer(1024);
     va_list tesm_args;
@@ -276,47 +207,16 @@ namespace slx {
 
   int Logger::ProcessEvent(const LoggerEvent & i_event)
   {
-    for (auto it = this->callbacks.begin(); it != this->callbacks.end(); ++it)
+    if (flag_quiet == true)
     {
-      if ((it->get()->level != LOG_USE_DEFAULT
-           && i_event.level >= it->get()->level)
-          ||(it->get()->level == LOG_USE_DEFAULT
-             && i_event.level >= this->level && this->quiet_flag == false))
-      {
-        it->get()->callback_fn(i_event, it->get()->data);
-      }
+      return 0;
+    }
+
+    for (auto & callback : this->callbacks)
+    {
+      callback->Exec(i_event);
     }
 
     return 0;
-  }
-
-  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackStream(
-      const std::ostream & i_out
-    , LogLevel i_level)
-  {
-    return std::shared_ptr<LoggerCallback>(
-            new LoggerCallback{DefaultLoggerCallbackStream
-          , reinterpret_cast<void *>(const_cast<std::ostream *>(&i_out))
-          , i_level});
-  }
-
-  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackFilename(
-      const char * i_file
-    , LogLevel i_level)
-  {
-    return std::shared_ptr<LoggerCallback>(
-            new LoggerCallback{DefaultLoggerCallbackFilename
-          , reinterpret_cast<void *>(const_cast<char *>(i_file))
-          , i_level});
-  }
-
-  std::shared_ptr<LoggerCallback> Logger::CreateDefalutCallbackFILE(
-      FILE * i_file
-    , LogLevel i_level)
-  {
-    return std::shared_ptr<LoggerCallback>(
-            new LoggerCallback{DefaultLoggerCallbackFILE
-          , reinterpret_cast<void *>(i_file)
-          , i_level});
   }
 }
