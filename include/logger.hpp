@@ -31,32 +31,34 @@ namespace slx
     LogLevel level;
   };
 
-  class CallbackInterface
+  class HandlerInterface
   {
   public:
-    CallbackInterface() = default;
+    HandlerInterface() = default;
 
-    virtual ~CallbackInterface() = default;
+    virtual ~HandlerInterface() = default;
 
-    int Exec(const LoggerEvent &i_event);
+    int HandleEvent(const LoggerEvent &i_event);
 
-    LogLevel GetLevel() const;
+    LogLevel GetLogLevel() const;
 
-    void SetLevel(LogLevel i_level);
+    void SetLogLevel(LogLevel i_level);
 
-    bool GetFlagActive() const;
+    bool IsEnabled() const;
 
-    void SetFlagActive(bool i_flag);
+    void Enable();
+
+    void Disable();
 
   protected:
-    virtual int CallbackFunction(const LoggerEvent &i_event) = 0;
+    virtual int HandlerFunction(const LoggerEvent &i_event) = 0;
 
-    LogLevel level = LogLevel::LOG_TRACE;
+    LogLevel log_level = LogLevel::LOG_TRACE;
 
-    bool flag_active = true;
+    bool flag_enabled = true;
   };
 
-  typedef std::shared_ptr<CallbackInterface> tCallback;
+  typedef std::shared_ptr<HandlerInterface> tHandler;
 
   class Logger
   {
@@ -65,31 +67,30 @@ namespace slx
 
     ~Logger() = default;
 
-    int SetQuietFlag
+    bool IsEnabled() const;
+
+    void Enable();
+
+    void Disable();
+
+    std::size_t GetHandlersCount();
+
+    int AddHandler
     (
-      bool i_quiet_flag
+      const tHandler &i_handler
     );
 
-    bool GetQuietFlag() const;
-
-    std::size_t GetCallBacksCount();
-
-    int AddCallback
-    (
-      const tCallback &i_callback
-    );
-
-    tCallback GetCallbackByIndex
+    tHandler GetHandlerByIndex
     (
       std::size_t i_index
     );
 
-    int DelCallback
+    int DelHandler
     (
-      const tCallback &i_callback
+      const tHandler &i_handler
     );
 
-    int DelCallbackByIndex
+    int DelHandlerByIndex
     (
       std::size_t i_index
     );
@@ -99,7 +100,7 @@ namespace slx
       LogLevel i_level, const std::string &i_data
     );
 
-    int LogFormat
+    int LogFmt
     (
       LogLevel i_level, const char *fmt, ...
     );
@@ -130,9 +131,9 @@ namespace slx
       const LoggerEvent &i_event
     );
 
-    bool flag_quiet = false;
+    bool flag_enabled = true;
 
-    std::list<tCallback> callbacks;
+    std::list<tHandler> handlers;
   };
 }
 

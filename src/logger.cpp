@@ -18,69 +18,78 @@ namespace slx
       {LogLevel::LOG_FATAL, std::string{"FATAL"}}
     };
 
-  int CallbackInterface::Exec(const LoggerEvent &i_event)
+  int HandlerInterface::HandleEvent(const LoggerEvent &i_event)
   {
-    if (flag_active == false)
+    if (flag_enabled == false)
     {
       return 0;
     }
 
-    if (level > i_event.level)
+    if (log_level > i_event.level)
     {
       return 0;
     }
 
-    return CallbackFunction(i_event);
+    return HandlerFunction(i_event);
   }
 
-  LogLevel CallbackInterface::GetLevel() const
+  LogLevel HandlerInterface::GetLogLevel() const
   {
-    return level;
+    return log_level;
   }
 
-  void CallbackInterface::SetLevel(LogLevel i_level)
+  void HandlerInterface::SetLogLevel(LogLevel i_level)
   {
-    level = i_level;
+    log_level = i_level;
   }
 
-  bool CallbackInterface::GetFlagActive() const
+  bool HandlerInterface::IsEnabled() const
   {
-    return flag_active;
+    return flag_enabled;
   }
 
-  void CallbackInterface::SetFlagActive(bool i_flag)
+  void HandlerInterface::Enable()
   {
-    flag_active = i_flag;
+    flag_enabled = true;
   }
 
-  int Logger::SetQuietFlag(bool i_quiet_flag)
+  void HandlerInterface::Disable()
   {
-    flag_quiet = i_quiet_flag;
+    flag_enabled = false;
+  }
+
+  bool Logger::IsEnabled() const
+  {
+    return flag_enabled;
+  }
+
+  void Logger::Enable()
+  {
+    flag_enabled = true;
+  }
+
+  void Logger::Disable()
+  {
+    flag_enabled = false;
+  }
+
+  std::size_t Logger::GetHandlersCount()
+  {
+    return handlers.size();
+  }
+
+  int Logger::AddHandler(const tHandler & i_handler)
+  {
+    handlers.push_back(i_handler);
     return 0;
   }
 
-  bool Logger::GetQuietFlag() const
+  tHandler Logger::GetHandlerByIndex(std::size_t i_index)
   {
-    return flag_quiet;
-  }
-
-  std::size_t Logger::GetCallBacksCount()
-  {
-    return callbacks.size();
-  }
-
-  int Logger::AddCallback(const tCallback & i_callback)
-  {
-    callbacks.push_back(i_callback);
-    return 0;
-  }
-
-  tCallback Logger::GetCallbackByIndex(std::size_t i_index)
-  {
-    if (i_index < callbacks.size())
+    if (i_index < handlers.size())
     {
       std::size_t count = 0;
-      for (auto it = callbacks.begin(); it != callbacks.end(); ++it, ++count)
+      for (auto it = handlers.begin(); it != handlers.end(); ++it, ++count)
       {
         if (count == i_index)
         {
@@ -89,16 +98,16 @@ namespace slx
       }
     }
 
-    return tCallback();
+    return tHandler();
   }
 
-  int Logger::DelCallback(const tCallback & i_callback)
+  int Logger::DelHandler(const tHandler & i_handler)
   {
-    for (auto it = callbacks.begin(); it != callbacks.end(); ++it)
+    for (auto it = handlers.begin(); it != handlers.end(); ++it)
     {
-      if (i_callback.get() == (*it).get())
+      if (i_handler.get() == (*it).get())
       {
-        callbacks.erase(it);
+        handlers.erase(it);
         return 0;
       }
     }
@@ -106,16 +115,16 @@ namespace slx
     return 1;
   }
 
-  int Logger::DelCallbackByIndex(std::size_t i_index)
+  int Logger::DelHandlerByIndex(std::size_t i_index)
   {
-    if (i_index < callbacks.size())
+    if (i_index < handlers.size())
     {
       std::size_t count = 0;
-      for (auto it = callbacks.begin(); it != callbacks.end(); ++it, ++count)
+      for (auto it = handlers.begin(); it != handlers.end(); ++it, ++count)
       {
         if (count == i_index)
         {
-          callbacks.erase(it);
+          handlers.erase(it);
           return 0;
         }
       }
@@ -136,12 +145,12 @@ namespace slx
     return 0;
   }
 
-  int Logger::LogFormat(LogLevel i_level, const char *i_fmt, ...)
+  int Logger::LogFmt(LogLevel i_level, const char *fmt, ...)
   {
     va_list vargs;
     std::string data;
-    va_start(vargs, i_fmt);
-    data = FormatData(i_fmt, vargs);
+    va_start(vargs, fmt);
+    data = FormatData(fmt, vargs);
     va_end(vargs);
 
     return this->Log(i_level, data);
@@ -207,14 +216,14 @@ namespace slx
 
   int Logger::ProcessEvent(const LoggerEvent & i_event)
   {
-    if (flag_quiet == true)
+    if (flag_enabled == false)
     {
       return 0;
     }
 
-    for (auto & callback : this->callbacks)
+    for (auto & handler : this->handlers)
     {
-      callback->Exec(i_event);
+      handler->HandleEvent(i_event);
     }
 
     return 0;

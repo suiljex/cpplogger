@@ -1,14 +1,14 @@
-#include "logger_default_callbacks.hpp"
+#include "logger_default_handlers.hpp"
 
 namespace slx
 {
-  CallbackFilename::CallbackFilename(const std::string &i_filename)
-    : CallbackInterface(), file(i_filename)
+  HandlerFilename::HandlerFilename(const std::string &i_filename)
+    : HandlerInterface(), file(i_filename)
   {
 
   }
 
-  int CallbackFilename::CallbackFunction(const LoggerEvent &i_event)
+  int HandlerFilename::HandlerFunction(const LoggerEvent &i_event)
   {
     if (file.is_open() == false)
     {
@@ -23,13 +23,13 @@ namespace slx
     return 0;
   }
 
-  CallbackStream::CallbackStream(std::ostream & i_stream)
+  HandlerStream::HandlerStream(std::ostream & i_stream)
     : out(i_stream)
   {
 
   }
 
-  int CallbackStream::CallbackFunction(const LoggerEvent &i_event)
+  int HandlerStream::HandlerFunction(const LoggerEvent &i_event)
   {
     out << Logger::FormatTimestamp("%Y-%m-%d %H:%M:%S", i_event.time)
         << " " << std::setw(5) << g_log_level_strings.at(i_event.level)
@@ -39,13 +39,13 @@ namespace slx
     return 0;
   }
 
-  CallbackFILE::CallbackFILE(FILE *i_file)
+  HandlerFILE::HandlerFILE(FILE *i_file)
     : file(i_file)
   {
 
   }
 
-  int CallbackFILE::CallbackFunction(const LoggerEvent &i_event)
+  int HandlerFILE::HandlerFunction(const LoggerEvent &i_event)
   {
     if (file == nullptr)
     {
