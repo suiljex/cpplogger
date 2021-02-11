@@ -61,27 +61,44 @@ namespace slx
 
   Logger::Logger()
   {
-    AsyncMode();
+    SetMode(LoggerMode::LOGGER_SYNC);
   }
 
   Logger::~Logger()
   {
-    SyncMode();
+    SetMode(LoggerMode::LOGGER_DISABLED);
   }
 
-  bool Logger::IsEnabled() const
+  LoggerMode Logger::GetMode() const
   {
-    return flag_enabled;
+    return mode;
   }
 
-  void Logger::Enable()
+  void Logger::SetMode(const LoggerMode &i_mode)
   {
-    flag_enabled = true;
-  }
+    if (mode == i_mode)
+    {
+      return;
+    }
 
-  void Logger::Disable()
-  {
-    flag_enabled = false;
+    if (i_mode == LoggerMode::LOGGER_ASYNC && mode != LoggerMode::LOGGER_ASYNC)
+    {
+      worker_active = true;
+      worker_thread = std::thread(QueueWorker, this);
+    }
+    else if (i_mode != LoggerMode::LOGGER_ASYNC && mode == LoggerMode::LOGGER_ASYNC)
+    {
+      worker_active = false;
+      worker_cv.notify_one();
+      worker_thread.join();
+
+      while (events_queue.empty() == false)
+      {
+        ProcessEvent(events_queue.front());
+        events_queue.pop();
+      }
+    }
+    mode = i_mode;
   }
 
   std::size_t Logger::GetHandlersCount()
@@ -161,20 +178,17 @@ namespace slx
     event.data = i_data;
     event.time = std::time(nullptr);
 
-    if (flag_async == true)
+    if (mode == LoggerMode::LOGGER_SYNC)
+    {
+      ProcessEvent(event);
+    }
+    else if (mode == LoggerMode::LOGGER_ASYNC)
     {
       queue_mtx.lock();
       events_queue.push(event);
       queue_mtx.unlock();
 
-      //worker_mtx.lock();
-      //is_signaled = true;
       worker_cv.notify_one();
-      //worker_mtx.unlock();
-    }
-    else
-    {
-      ProcessEvent(event);
     }
 
     return 0;
@@ -251,11 +265,6 @@ namespace slx
 
   int Logger::ProcessEvent(const LoggerEvent & i_event)
   {
-    if (flag_enabled == false)
-    {
-      return 0;
-    }
-
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
     for (auto & handler : this->handlers)
@@ -271,11 +280,7 @@ namespace slx
     while (d_logger->worker_active == true)
     {
       std::unique_lock<std::mutex> worker_lock(d_logger->worker_mtx);
-      //while (d_logger->is_signaled == false)
-      //{
       d_logger->worker_cv.wait_for(worker_lock, std::chrono::seconds(1));
-      //}
-      //d_logger->is_signaled = false;
 
       LoggerEvent temp_event;
 

@@ -27,6 +27,13 @@ namespace slx
     , LOG_FATAL
   };
 
+  enum class LoggerMode
+  {
+    LOGGER_DISABLED = 0
+    , LOGGER_SYNC
+    , LOGGER_ASYNC
+  };
+
   extern const std::map<LogLevel, std::string> g_log_level_strings;
 
   struct LoggerEvent
@@ -72,55 +79,9 @@ namespace slx
 
     ~Logger();
 
-    bool IsEnabled() const;
+    LoggerMode GetMode() const;
 
-    void Enable();
-
-    void Disable();
-
-    bool IsAsync() const
-    {
-      return flag_async;
-    }
-
-    void AsyncMode()
-    {
-      if (flag_async == true)
-      {
-        return;
-      }
-
-      worker_active = true;
-      //is_signaled = false;
-      worker_thread = std::thread(QueueWorker, this);
-
-      flag_async = true;
-    }
-
-    void SyncMode()
-    {
-      if (flag_async == false)
-      {
-        return;
-      }
-
-      worker_active = false;
-
-      //worker_mtx.lock();
-      //is_signaled = true;
-      worker_cv.notify_one();
-      //worker_mtx.unlock();
-
-      worker_thread.join();
-
-      while (events_queue.empty() == false)
-      {
-        ProcessEvent(events_queue.front());
-        events_queue.pop();
-      }
-
-      flag_async = false;
-    }
+    void SetMode(const LoggerMode & i_mode);
 
     std::size_t GetHandlersCount();
 
@@ -185,8 +146,7 @@ namespace slx
       Logger * d_logger
     );
 
-    bool flag_enabled = true;
-    bool flag_async = false;
+    LoggerMode mode = LoggerMode::LOGGER_DISABLED;
 
     std::queue<LoggerEvent> events_queue;
     std::mutex queue_mtx;
@@ -194,8 +154,6 @@ namespace slx
     std::thread worker_thread;
     std::mutex worker_mtx;
     std::condition_variable worker_cv;
-    //bool is_signaled;
-    //std::atomic<bool> is_signaled;
 
     std::atomic<bool> worker_active;
 
