@@ -9,14 +9,14 @@
 
 namespace slx
 {
-  extern const std::map<LogLevel, std::string> g_log_level_strings
+  extern const std::map<LoggerEvent::Level, std::string> g_log_level_strings
     {
-      {LogLevel::LOG_TRACE, std::string{"TRACE"}},
-      {LogLevel::LOG_DEBUG, std::string{"DEBUG"}},
-      {LogLevel::LOG_INFO,  std::string{"INFO"}},
-      {LogLevel::LOG_WARN,  std::string{"WARN"}},
-      {LogLevel::LOG_ERROR, std::string{"ERROR"}},
-      {LogLevel::LOG_FATAL, std::string{"FATAL"}}
+      {LoggerEvent::Level::TRACE,     std::string{"TRACE"}},
+      {LoggerEvent::Level::DEBUG,     std::string{"DEBUG"}},
+      {LoggerEvent::Level::INFO,      std::string{"INFO"}},
+      {LoggerEvent::Level::WARN,      std::string{"WARN"}},
+      {LoggerEvent::Level::ERROR,     std::string{"ERROR"}},
+      {LoggerEvent::Level::FATAL, std::string{"FATAL"}}
     };
 
   int HandlerInterface::HandleEvent(const LoggerEvent &i_event)
@@ -34,12 +34,12 @@ namespace slx
     return HandlerFunction(i_event);
   }
 
-  LogLevel HandlerInterface::GetLogLevel() const
+  LoggerEvent::Level HandlerInterface::GetLogLevel() const
   {
     return log_level;
   }
 
-  void HandlerInterface::SetLogLevel(LogLevel i_level)
+  void HandlerInterface::SetLogLevel(LoggerEvent::Level i_level)
   {
     log_level = i_level;
   }
@@ -61,32 +61,32 @@ namespace slx
 
   Logger::Logger()
   {
-    SetMode(LoggerMode::LOGGER_SYNC);
+    SetMode(Logger::Mode::SYNC);
   }
 
   Logger::~Logger()
   {
-    SetMode(LoggerMode::LOGGER_DISABLED);
+    SetMode(Logger::Mode::DISABLED);
   }
 
-  LoggerMode Logger::GetMode() const
+  Logger::Mode Logger::GetMode() const
   {
     return mode;
   }
 
-  void Logger::SetMode(const LoggerMode &i_mode)
+  void Logger::SetMode(const Logger::Mode &i_mode)
   {
     if (mode == i_mode)
     {
       return;
     }
 
-    if (i_mode == LoggerMode::LOGGER_ASYNC && mode != LoggerMode::LOGGER_ASYNC)
+    if (i_mode == Logger::Mode::ASYNC && mode != Logger::Mode::ASYNC)
     {
       worker_active = true;
       worker_thread = std::thread(QueueWorker, this);
     }
-    else if (i_mode != LoggerMode::LOGGER_ASYNC && mode == LoggerMode::LOGGER_ASYNC)
+    else if (i_mode != Logger::Mode::ASYNC && mode == Logger::Mode::ASYNC)
     {
       worker_active = false;
       worker_cv.notify_one();
@@ -171,18 +171,18 @@ namespace slx
     return 1;
   }
 
-  int Logger::Log(LogLevel i_level, const std::string &i_data)
+  int Logger::Log(LoggerEvent::Level i_level, const std::string &i_data)
   {
     LoggerEvent event;
     event.level = i_level;
     event.data = i_data;
     event.time = std::time(nullptr);
 
-    if (mode == LoggerMode::LOGGER_SYNC)
+    if (mode == Logger::Mode::SYNC)
     {
       ProcessEvent(event);
     }
-    else if (mode == LoggerMode::LOGGER_ASYNC)
+    else if (mode == Logger::Mode::ASYNC)
     {
       queue_mtx.lock();
       events_queue.push(event);
@@ -194,7 +194,7 @@ namespace slx
     return 0;
   }
 
-  int Logger::LogFmt(LogLevel i_level, const char *fmt, ...)
+  int Logger::LogFmt(LoggerEvent::Level i_level, const char *fmt, ...)
   {
     va_list vargs;
     std::string data;

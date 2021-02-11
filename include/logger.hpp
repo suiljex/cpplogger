@@ -17,31 +17,26 @@
 
 namespace slx
 {
-  enum class LogLevel
-  {
-    LOG_TRACE = 0
-    , LOG_DEBUG
-    , LOG_INFO
-    , LOG_WARN
-    , LOG_ERROR
-    , LOG_FATAL
-  };
-
-  enum class LoggerMode
-  {
-    LOGGER_DISABLED = 0
-    , LOGGER_SYNC
-    , LOGGER_ASYNC
-  };
-
-  extern const std::map<LogLevel, std::string> g_log_level_strings;
-
   struct LoggerEvent
   {
+    enum class Level
+    {
+      TRACE = 0
+      , DEBUG
+      , INFO
+      , WARN
+      , ERROR
+      , FATAL
+    };
+
     std::time_t time;
     std::string data;
-    LogLevel level;
+    LoggerEvent::Level level;
   };
+
+  typedef LoggerEvent::Level LogLVL;
+
+  extern const std::map<LoggerEvent::Level, std::string> g_log_level_strings;
 
   class HandlerInterface
   {
@@ -52,9 +47,9 @@ namespace slx
 
     int HandleEvent(const LoggerEvent &i_event);
 
-    LogLevel GetLogLevel() const;
+    LoggerEvent::Level GetLogLevel() const;
 
-    void SetLogLevel(LogLevel i_level);
+    void SetLogLevel(LoggerEvent::Level i_level);
 
     bool IsEnabled() const;
 
@@ -65,7 +60,7 @@ namespace slx
   protected:
     virtual int HandlerFunction(const LoggerEvent &i_event) = 0;
 
-    LogLevel log_level = LogLevel::LOG_TRACE;
+    LoggerEvent::Level log_level = LoggerEvent::Level::TRACE;
 
     bool flag_enabled = true;
   };
@@ -75,13 +70,20 @@ namespace slx
   class Logger
   {
   public:
+    enum class Mode
+    {
+      DISABLED = 0
+      , SYNC
+      , ASYNC
+    };
+
     Logger();
 
     ~Logger();
 
-    LoggerMode GetMode() const;
+    Logger::Mode GetMode() const;
 
-    void SetMode(const LoggerMode & i_mode);
+    void SetMode(const Logger::Mode & i_mode);
 
     std::size_t GetHandlersCount();
 
@@ -107,12 +109,12 @@ namespace slx
 
     int Log
     (
-      LogLevel i_level, const std::string &i_data
+      LoggerEvent::Level i_level, const std::string &i_data
     );
 
     int LogFmt
     (
-      LogLevel i_level, const char *fmt, ...
+      LoggerEvent::Level i_level, const char *fmt, ...
     );
 
     static std::string FormatTimestamp
@@ -146,7 +148,7 @@ namespace slx
       Logger * d_logger
     );
 
-    LoggerMode mode = LoggerMode::LOGGER_DISABLED;
+    Logger::Mode mode = Logger::Mode::DISABLED;
 
     std::queue<LoggerEvent> events_queue;
     std::mutex queue_mtx;
