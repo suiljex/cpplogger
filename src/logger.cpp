@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <vector>
 #include <ctime>
+#include <chrono>
 #include <map>
 
 namespace slx
@@ -58,6 +59,16 @@ namespace slx
     flag_enabled = false;
   }
 
+  Logger::Logger()
+  {
+    AsyncMode();
+  }
+
+  Logger::~Logger()
+  {
+    SyncMode();
+  }
+
   bool Logger::IsEnabled() const
   {
     return flag_enabled;
@@ -75,17 +86,23 @@ namespace slx
 
   std::size_t Logger::GetHandlersCount()
   {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     return handlers.size();
   }
 
   int Logger::AddHandler(const tHandler & i_handler)
   {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     handlers.push_back(i_handler);
     return 0;
   }
 
   tHandler Logger::GetHandlerByIndex(std::size_t i_index)
   {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     if (i_index < handlers.size())
     {
       std::size_t count = 0;
@@ -103,6 +120,8 @@ namespace slx
 
   int Logger::DelHandler(const tHandler & i_handler)
   {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     for (auto it = handlers.begin(); it != handlers.end(); ++it)
     {
       if (i_handler.get() == (*it).get())
@@ -117,6 +136,8 @@ namespace slx
 
   int Logger::DelHandlerByIndex(std::size_t i_index)
   {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     if (i_index < handlers.size())
     {
       std::size_t count = 0;
@@ -140,7 +161,21 @@ namespace slx
     event.data = i_data;
     event.time = std::time(nullptr);
 
-    ProcessEvent(event);
+    if (flag_async == true)
+    {
+      queue_mtx.lock();
+      events_queue.push(event);
+      queue_mtx.unlock();
+
+      //worker_mtx.lock();
+      //is_signaled = true;
+      worker_cv.notify_one();
+      //worker_mtx.unlock();
+    }
+    else
+    {
+      ProcessEvent(event);
+    }
 
     return 0;
   }
@@ -221,11 +256,42 @@ namespace slx
       return 0;
     }
 
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
     for (auto & handler : this->handlers)
     {
       handler->HandleEvent(i_event);
     }
 
     return 0;
+  }
+
+  void Logger::QueueWorker(Logger *d_logger)
+  {
+    while (d_logger->worker_active == true)
+    {
+      std::unique_lock<std::mutex> worker_lock(d_logger->worker_mtx);
+      //while (d_logger->is_signaled == false)
+      //{
+      d_logger->worker_cv.wait_for(worker_lock, std::chrono::seconds(1));
+      //}
+      //d_logger->is_signaled = false;
+
+      LoggerEvent temp_event;
+
+      d_logger->queue_mtx.lock();
+      while (d_logger->events_queue.empty() == false)
+      {
+        temp_event = d_logger->events_queue.front();
+        d_logger->events_queue.pop();
+
+        d_logger->queue_mtx.unlock();
+
+        d_logger->ProcessEvent(temp_event);
+
+        d_logger->queue_mtx.lock();
+      }
+      d_logger->queue_mtx.unlock();
+    }
   }
 }

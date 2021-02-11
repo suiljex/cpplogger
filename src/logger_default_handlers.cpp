@@ -3,7 +3,7 @@
 namespace slx
 {
   HandlerFilename::HandlerFilename(const std::string &i_filename)
-    : HandlerInterface(), file(i_filename)
+    : HandlerInterface(), file(i_filename, std::ios_base::app)
   {
 
   }

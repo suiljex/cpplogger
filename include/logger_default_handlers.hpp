@@ -10,7 +10,7 @@ namespace slx
   class HandlerFilename : public HandlerInterface
   {
   public:
-    HandlerFilename(const std::string & i_filename);
+    explicit HandlerFilename(const std::string & i_filename);
 
     ~HandlerFilename() override = default;
 
@@ -23,7 +23,7 @@ namespace slx
   class HandlerStream : public HandlerInterface
   {
   public:
-    HandlerStream(std::ostream & i_stream);
+    explicit HandlerStream(std::ostream & i_stream);
 
     ~HandlerStream() override = default;
 
@@ -36,7 +36,7 @@ namespace slx
   class HandlerFILE : public HandlerInterface
   {
   public:
-    HandlerFILE(FILE * i_file);
+    explicit HandlerFILE(FILE * i_file);
 
     ~HandlerFILE() override = default;
 
