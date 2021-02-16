@@ -17,6 +17,23 @@
 
 namespace slx
 {
+  class BinarySemaphore
+  {
+  public:
+
+    BinarySemaphore(bool i_val = false);
+
+    void Notify();
+
+    void Wait();
+
+  private:
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool notified;
+  };
+
   struct LoggerEvent
   {
     enum class Level
@@ -87,14 +104,14 @@ namespace slx
 
     std::size_t GetHandlersCount();
 
-    int AddHandler
-    (
-      const tHandler &i_handler
-    );
-
     tHandler GetHandlerByIndex
     (
       std::size_t i_index
+    );
+
+    int AddHandler
+    (
+      const tHandler &i_handler
     );
 
     int DelHandler
@@ -154,8 +171,7 @@ namespace slx
     std::mutex queue_mtx;
 
     std::thread worker_thread;
-    std::mutex worker_mtx;
-    std::condition_variable worker_cv;
+    BinarySemaphore worker_sem;
 
     std::atomic<bool> worker_active;
 

@@ -19,6 +19,30 @@ namespace slx
       {LoggerEvent::Level::FATAL, std::string{"FATAL"}}
     };
 
+  BinarySemaphore::BinarySemaphore(bool i_val)
+    : notified(i_val)
+  {
+
+  }
+
+  void BinarySemaphore::Notify()
+  {
+    std::unique_lock<std::mutex> lck(mtx);
+    notified = true;
+    cv.notify_one();
+  }
+
+  void BinarySemaphore::Wait()
+  {
+    std::unique_lock<std::mutex> lck(mtx);
+    while (notified == false)
+    {
+      cv.wait(lck);
+    }
+
+    notified = false;
+  }
+
   int HandlerInterface::HandleEvent(const LoggerEvent &i_event)
   {
     if (flag_enabled == false)
@@ -89,7 +113,7 @@ namespace slx
     else if (i_mode != Logger::Mode::ASYNC && mode == Logger::Mode::ASYNC)
     {
       worker_active = false;
-      worker_cv.notify_one();
+      worker_sem.Notify();
       worker_thread.join();
 
       while (events_queue.empty() == false)
@@ -106,14 +130,6 @@ namespace slx
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
     return handlers.size();
-  }
-
-  int Logger::AddHandler(const tHandler & i_handler)
-  {
-    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
-
-    handlers.push_back(i_handler);
-    return 0;
   }
 
   tHandler Logger::GetHandlerByIndex(std::size_t i_index)
@@ -133,6 +149,14 @@ namespace slx
     }
 
     return tHandler();
+  }
+
+  int Logger::AddHandler(const tHandler & i_handler)
+  {
+    std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
+
+    handlers.push_back(i_handler);
+    return 0;
   }
 
   int Logger::DelHandler(const tHandler & i_handler)
@@ -188,7 +212,7 @@ namespace slx
       events_queue.push(event);
       queue_mtx.unlock();
 
-      worker_cv.notify_one();
+      worker_sem.Notify();
     }
 
     return 0;
@@ -279,8 +303,7 @@ namespace slx
   {
     while (d_logger->worker_active == true)
     {
-      std::unique_lock<std::mutex> worker_lock(d_logger->worker_mtx);
-      d_logger->worker_cv.wait_for(worker_lock, std::chrono::seconds(1));
+      d_logger->worker_sem.Wait();
 
       LoggerEvent temp_event;
 
