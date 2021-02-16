@@ -20,15 +20,13 @@ namespace slx
   class BinarySemaphore
   {
   public:
-
-    BinarySemaphore(bool i_val = false);
+    explicit BinarySemaphore(bool i_val = false);
 
     void Notify();
 
     void Wait();
 
   private:
-
     std::mutex mtx;
     std::condition_variable cv;
     bool notified;
@@ -94,7 +92,7 @@ namespace slx
       , ASYNC
     };
 
-    Logger();
+    explicit Logger(const Logger::Mode & i_mode = Logger::Mode::SYNC);
 
     ~Logger();
 

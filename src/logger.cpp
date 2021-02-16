@@ -4,7 +4,6 @@
 #include <cstdarg>
 #include <vector>
 #include <ctime>
-#include <chrono>
 #include <map>
 
 namespace slx
@@ -83,9 +82,10 @@ namespace slx
     flag_enabled = false;
   }
 
-  Logger::Logger()
+  Logger::Logger(const Logger::Mode & i_mode)
+    : worker_active(false)
   {
-    SetMode(Logger::Mode::SYNC);
+    SetMode(i_mode);
   }
 
   Logger::~Logger()
