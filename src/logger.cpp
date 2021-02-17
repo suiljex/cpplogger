@@ -151,15 +151,23 @@ namespace slx
     return tHandler();
   }
 
-  int Logger::AddHandler(const tHandler & i_handler)
+  Logger::ReturnCodes Logger::AddHandler(const tHandler & i_handler)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
+    for (auto handler : handlers)
+    {
+      if (i_handler.get() == handler.get())
+      {
+        return ERROR_HANDLER_NOT_UNIQUE;
+      }
+    }
+
     handlers.push_back(i_handler);
-    return 0;
+    return RET_SUCCESS;
   }
 
-  int Logger::DelHandler(const tHandler & i_handler)
+  Logger::ReturnCodes Logger::DelHandler(const tHandler & i_handler)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
@@ -168,14 +176,14 @@ namespace slx
       if (i_handler.get() == (*it).get())
       {
         handlers.erase(it);
-        return 0;
+        return RET_SUCCESS;
       }
     }
 
-    return 1;
+    return ERROR_HANDLER_NOT_FOUND;
   }
 
-  int Logger::DelHandlerByIndex(std::size_t i_index)
+  Logger::ReturnCodes Logger::DelHandlerByIndex(std::size_t i_index)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
@@ -187,15 +195,15 @@ namespace slx
         if (count == i_index)
         {
           handlers.erase(it);
-          return 0;
+          return RET_SUCCESS;
         }
       }
     }
 
-    return 1;
+    return ERROR_HANDLER_NOT_FOUND;
   }
 
-  int Logger::Log(LoggerEvent::Level i_level, const std::string &i_data)
+  Logger::ReturnCodes Logger::Log(LoggerEvent::Level i_level, const std::string &i_data)
   {
     LoggerEvent event;
     event.level = i_level;
@@ -215,10 +223,10 @@ namespace slx
       worker_sem.Notify();
     }
 
-    return 0;
+    return RET_SUCCESS;
   }
 
-  int Logger::LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...)
+  Logger::ReturnCodes Logger::LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...)
   {
     va_list vargs;
     std::string data;
@@ -287,7 +295,7 @@ namespace slx
     return std::string();
   }
 
-  int Logger::ProcessEvent(const LoggerEvent & i_event)
+  Logger::ReturnCodes Logger::ProcessEvent(const LoggerEvent & i_event)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
@@ -296,7 +304,7 @@ namespace slx
       handler->HandleEvent(i_event);
     }
 
-    return 0;
+    return RET_SUCCESS;
   }
 
   void Logger::QueueWorker(Logger *d_logger)

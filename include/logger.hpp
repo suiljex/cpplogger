@@ -149,6 +149,13 @@ namespace slx
       , ASYNC      //! Асинхронный режим. События добавляются в очередь, которую обрабатывает отдельный поток
     };
 
+    enum ReturnCodes
+    {
+      RET_SUCCESS = 0
+      , ERROR_HANDLER_NOT_UNIQUE
+      , ERROR_HANDLER_NOT_FOUND
+    };
+
     //! Конструктор
     /*!
       Задает ражим работы логгера. По умолчанию синхронный режим.
@@ -191,35 +198,36 @@ namespace slx
 
     //! Добавить обработчик
     /*!
-      Добавляет новый обработчик. Уникальность обработчиков не контроллируется
+      Добавляет новый обработчик, если его еще нет.
       \param i_handler обработчик
-      \return 0 Успех
+      \return RET_SUCCESS Успех
+      \return ERROR_HANDLER_NOT_UNIQUE Обработчик уже есть
     */
-    int AddHandler(const tHandler &i_handler);
+    ReturnCodes AddHandler(const tHandler &i_handler);
 
     //! Удалить обработчик
     /*!
       \param i_handler обработчик
-      \return 0 Успех
-      \return 1 Ошибка
+      \return RET_SUCCESS Успех
+      \return ERROR_HANDLER_NOT_FOUND Обработчик не найден
     */
-    int DelHandler(const tHandler &i_handler);
+    ReturnCodes DelHandler(const tHandler &i_handler);
 
     //! Удалить обработчик по индексу
     /*!
       \param i_index индекс обработчика
-      \return 0 Успех
-      \return 1 Ошибка
+      \return RET_SUCCESS Успех
+      \return ERROR_HANDLER_NOT_FOUND Обработчик не найден
     */
-    int DelHandlerByIndex(std::size_t i_index);
+    ReturnCodes DelHandlerByIndex(std::size_t i_index);
 
     //! Залогировать сообщение
     /*!
       \param i_level Уровень сообщения
       \param i_data Сообщение для логирования
-      \return 0 Успех
+      \return RET_SUCCESS Успех
     */
-    int Log(LoggerEvent::Level i_level, const std::string &i_data);
+    ReturnCodes Log(LoggerEvent::Level i_level, const std::string &i_data);
 
     //! Залогировать сообщение с форматом
     /*!
@@ -228,9 +236,9 @@ namespace slx
       \param i_level Уровень сообщения
       \param i_fmt Строка формата
       \param ... Опциональные параметры
-      \return 0 Успех
+      \return RET_SUCCESS Успех
     */
-    int LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...);
+    ReturnCodes LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...);
 
     //! Отфоматировать метку времени
     /*!
@@ -277,9 +285,9 @@ namespace slx
     /*!
       Обрабатывает событие путем вызова всех обработчкиов
       \param i_event Событие
-      \return 0 Успех
+      \return RET_SUCCESS Успех
     */
-    int ProcessEvent(const LoggerEvent &i_event);
+    ReturnCodes ProcessEvent(const LoggerEvent &i_event);
 
     //! Функция для потока-обработчика очереди
     /*!
