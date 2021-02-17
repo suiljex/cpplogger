@@ -15,7 +15,7 @@ namespace slx
       {LoggerEvent::Level::INFO,      std::string{"INFO"}},
       {LoggerEvent::Level::WARN,      std::string{"WARN"}},
       {LoggerEvent::Level::ERROR,     std::string{"ERROR"}},
-      {LoggerEvent::Level::FATAL, std::string{"FATAL"}}
+      {LoggerEvent::Level::FATAL,     std::string{"FATAL"}}
     };
 
   BinarySemaphore::BinarySemaphore(bool i_val)
@@ -218,12 +218,12 @@ namespace slx
     return 0;
   }
 
-  int Logger::LogFmt(LoggerEvent::Level i_level, const char *fmt, ...)
+  int Logger::LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...)
   {
     va_list vargs;
     std::string data;
-    va_start(vargs, fmt);
-    data = FormatData(fmt, vargs);
+    va_start(vargs, i_fmt);
+    data = FormatData(i_fmt, vargs);
     va_end(vargs);
 
     return this->Log(i_level, data);
