@@ -149,7 +149,7 @@ namespace slx
       , ASYNC      //! Асинхронный режим. События добавляются в очередь, которую обрабатывает отдельный поток
     };
 
-    enum ReturnCodes
+    enum ReturnCode
     {
       RET_SUCCESS = 0
       , ERROR_HANDLER_NOT_UNIQUE
@@ -203,7 +203,7 @@ namespace slx
       \return RET_SUCCESS Успех
       \return ERROR_HANDLER_NOT_UNIQUE Обработчик уже есть
     */
-    ReturnCodes AddHandler(const tHandler &i_handler);
+    ReturnCode AddHandler(const tHandler &i_handler);
 
     //! Удалить обработчик
     /*!
@@ -211,7 +211,7 @@ namespace slx
       \return RET_SUCCESS Успех
       \return ERROR_HANDLER_NOT_FOUND Обработчик не найден
     */
-    ReturnCodes DelHandler(const tHandler &i_handler);
+    ReturnCode DelHandler(const tHandler &i_handler);
 
     //! Удалить обработчик по индексу
     /*!
@@ -219,7 +219,7 @@ namespace slx
       \return RET_SUCCESS Успех
       \return ERROR_HANDLER_NOT_FOUND Обработчик не найден
     */
-    ReturnCodes DelHandlerByIndex(std::size_t i_index);
+    ReturnCode DelHandlerByIndex(std::size_t i_index);
 
     //! Залогировать сообщение
     /*!
@@ -227,7 +227,7 @@ namespace slx
       \param i_data Сообщение для логирования
       \return RET_SUCCESS Успех
     */
-    ReturnCodes Log(LoggerEvent::Level i_level, const std::string &i_data);
+    ReturnCode Log(LoggerEvent::Level i_level, const std::string &i_data);
 
     //! Залогировать сообщение с форматом
     /*!
@@ -238,7 +238,7 @@ namespace slx
       \param ... Опциональные параметры
       \return RET_SUCCESS Успех
     */
-    ReturnCodes LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...);
+    ReturnCode LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...);
 
     //! Отфоматировать метку времени
     /*!
@@ -280,14 +280,13 @@ namespace slx
     static std::string FormatData(const char *i_fmt, va_list i_args);
 
   protected:
-
     //! Обработать событие
     /*!
       Обрабатывает событие путем вызова всех обработчкиов
       \param i_event Событие
       \return RET_SUCCESS Успех
     */
-    ReturnCodes ProcessEvent(const LoggerEvent &i_event);
+    ReturnCode ProcessEvent(const LoggerEvent &i_event);
 
     //! Функция для потока-обработчика очереди
     /*!

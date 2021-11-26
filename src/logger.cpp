@@ -151,11 +151,11 @@ namespace slx
     return tHandler();
   }
 
-  Logger::ReturnCodes Logger::AddHandler(const tHandler & i_handler)
+  Logger::ReturnCode Logger::AddHandler(const tHandler & i_handler)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
-    for (auto handler : handlers)
+    for (const auto & handler : handlers)
     {
       if (i_handler.get() == handler.get())
       {
@@ -167,7 +167,7 @@ namespace slx
     return RET_SUCCESS;
   }
 
-  Logger::ReturnCodes Logger::DelHandler(const tHandler & i_handler)
+  Logger::ReturnCode Logger::DelHandler(const tHandler & i_handler)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
@@ -183,27 +183,30 @@ namespace slx
     return ERROR_HANDLER_NOT_FOUND;
   }
 
-  Logger::ReturnCodes Logger::DelHandlerByIndex(std::size_t i_index)
+  Logger::ReturnCode Logger::DelHandlerByIndex(std::size_t i_index)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
-    if (i_index < handlers.size())
+    if (i_index >= handlers.size())
     {
-      std::size_t count = 0;
-      for (auto it = handlers.begin(); it != handlers.end(); ++it, ++count)
+      return ERROR_HANDLER_NOT_FOUND;
+    }
+
+    std::size_t count = 0;
+
+    for (auto it = handlers.begin(); it != handlers.end(); ++it, ++count)
+    {
+      if (count == i_index)
       {
-        if (count == i_index)
-        {
-          handlers.erase(it);
-          return RET_SUCCESS;
-        }
+        handlers.erase(it);
+        return RET_SUCCESS;
       }
     }
 
-    return ERROR_HANDLER_NOT_FOUND;
+    return RET_SUCCESS;
   }
 
-  Logger::ReturnCodes Logger::Log(LoggerEvent::Level i_level, const std::string &i_data)
+  Logger::ReturnCode Logger::Log(LoggerEvent::Level i_level, const std::string &i_data)
   {
     LoggerEvent event;
     event.level = i_level;
@@ -226,7 +229,7 @@ namespace slx
     return RET_SUCCESS;
   }
 
-  Logger::ReturnCodes Logger::LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...)
+  Logger::ReturnCode Logger::LogFmt(LoggerEvent::Level i_level, const char *i_fmt, ...)
   {
     va_list vargs;
     std::string data;
@@ -295,7 +298,7 @@ namespace slx
     return std::string();
   }
 
-  Logger::ReturnCodes Logger::ProcessEvent(const LoggerEvent & i_event)
+  Logger::ReturnCode Logger::ProcessEvent(const LoggerEvent & i_event)
   {
     std::unique_lock<std::mutex> handlers_lock(handlers_mtx);
 
